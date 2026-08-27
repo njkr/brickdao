@@ -1,0 +1,147 @@
+@import "tailwindcss";
+
+/* BrickDAO design tokens — ported from BrickFi's tailwind.config.mjs into
+   Tailwind v4's CSS-first theme. Font variables are wired to next/font in
+   layout.tsx (--font-outfit / --font-plus-jakarta-sans) instead of a
+   Google Fonts <link> tag. */
+@theme {
+  --font-display: var(--font-outfit), system-ui, sans-serif;
+  --font-sans: var(--font-plus-jakarta-sans), system-ui, sans-serif;
+
+  --color-void-950: #0c0e12;
+  --color-void-900: #12151a;
+  --color-void-850: #181c23;
+  --color-void-800: #1e232b;
+  --color-void-700: #272d37;
+  --color-void-600: #343b47;
+  --color-void-500: #4a5260;
+  --color-void-400: #6b7280;
+
+  --color-cream-50: #fdfaf7;
+  --color-cream-100: #f5f0eb;
+  --color-cream-200: #e8e0d6;
+  --color-cream-300: #cfc5b8;
+  --color-cream-400: #9a9085;
+
+  --color-accent: #e0634a;
+  --color-accent-light: #f08b72;
+  --color-accent-dark: #c04f38;
+  --color-accent-muted: rgba(224, 99, 74, 0.14);
+
+  --color-secondary: #2db896;
+  --color-secondary-light: #4dd4b2;
+  --color-secondary-dark: #249a7d;
+  --color-secondary-muted: rgba(45, 184, 150, 0.12);
+
+  --color-glow-accent: rgba(224, 99, 74, 0.28);
+  --color-glow-secondary: rgba(45, 184, 150, 0.18);
+
+  --shadow-glow: 0 0 48px -8px rgba(224, 99, 74, 0.35);
+  --shadow-glow-sm: 0 0 24px -4px rgba(224, 99, 74, 0.25);
+  --shadow-glow-secondary: 0 0 32px -6px rgba(45, 184, 150, 0.25);
+  --shadow-inner-glow: inset 0 0 60px -20px rgba(224, 99, 74, 0.06);
+  --shadow-card: 0 4px 24px -4px rgba(0, 0, 0, 0.4);
+
+  --background-image-brick-pattern: url("data:image/svg+xml,%3Csvg width='60' height='30' viewBox='0 0 60 30' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h28v14H0V0zm30 0h30v14H30V0zM0 16h30v14H0V16zm32 0h28v14H32V16z' fill='%23E0634A' fill-opacity='0.04'/%3E%3C/svg%3E");
+  --background-image-noise: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+
+  --animate-fade-in: fadeIn 0.6s ease-out forwards;
+  --animate-slide-up: slideUp 0.5s ease-out forwards;
+  --animate-float: float 6s ease-in-out infinite;
+}
+
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-void-950 text-cream-100 font-sans antialiased;
+    font-feature-settings: "ss01", "ss02", "cv01", "cv02";
+  }
+
+  ::selection {
+    @apply bg-accent/35 text-cream-50;
+  }
+
+  a {
+    @apply text-inherit no-underline transition-colors duration-200;
+  }
+
+  * {
+    @apply box-border;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-void-900;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-void-600 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-accent/40;
+  }
+}
+
+@layer components {
+  .brick-gradient-text {
+    @apply bg-gradient-to-r from-accent via-accent-light to-secondary bg-clip-text text-transparent;
+  }
+
+  .glass-panel {
+    @apply bg-void-800/60 backdrop-blur-xl border border-void-700/80;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* RainbowKit overrides for the BrickDAO design system */
+[data-rk] button {
+  font-family: var(--font-plus-jakarta-sans), system-ui, sans-serif !important;
+}
+
+[data-rk] [data-testid="rk-connect-button"] {
+  border-radius: 0.75rem !important;
+  font-weight: 600 !important;
+}
