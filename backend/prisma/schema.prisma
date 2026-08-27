@@ -1,0 +1,133 @@
+// BrickDAO backend data model.
+//
+// Ported from BrickFi's flat JSON mock store into a real relational schema.
+// Dropped the generic `cryptos` / `goods` mock tables from the original app —
+// nothing in the frontend ever rendered them, they didn't belong to the
+// real-estate-tokenization domain, and carrying them forward would just be
+// dead weight in a "start clean" rewrite.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum PropertyStatus {
+  AVAILABLE
+  SOLD_OUT
+  COMING_SOON
+}
+
+enum TransactionType {
+  PURCHASE
+  YIELD
+}
+
+/// A wallet identity. Auth is wallet-only (Sign-In-With-Ethereum style) —
+/// see IMPROVEMENTS.md for why the old email/password JWT system was dropped
+/// instead of ported alongside it.
+model User {
+  id               String   @id @default(cuid())
+  address          String   @unique
+  role             Role     @default(USER)
+  nonce            String   @default(cuid())
+  refreshTokenHash String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  cards        Card[]
+  bankAccounts BankAccount[]
+  transactions Transaction[]
+
+  @@map("users")
+}
+
+model Property {
+  id              String         @id @default(cuid())
+  title           String
+  description     String
+  imageUrl        String
+  location        String
+  price           Int
+  tokenPrice      Float
+  totalTokens     Int
+  tokensSold      Int            @default(0)
+  status          PropertyStatus @default(AVAILABLE)
+  features        String[]
+  returnRate      Float?
+  contractAddress String?
+  /// The ERC-1155 token id for this property within the shared AssetFactory
+  /// contract at `contractAddress`. Null until an admin tokenizes the property.
+  tokenId         Int?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  documents    PropertyDocument[]
+  transactions Transaction[]
+
+  @@map("properties")
+}
+
+model PropertyDocument {
+  id         String   @id @default(cuid())
+  name       String
+  url        String
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@map("property_documents")
+}
+
+/// Token purchases and yield distributions, both scoped to the owning user.
+/// Replaces the old unauthenticated purchase_history / reward_history endpoints.
+model Transaction {
+  id         String          @id @default(cuid())
+  type       TransactionType
+  tokens     Int             @default(0)
+  value      Float
+  txHash     String?
+  userId     String
+  propertyId String?
+  createdAt  DateTime        @default(now())
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+
+  @@map("transactions")
+}
+
+/// Only ever stores last4 + metadata — never a full PAN. Scoped to its owner.
+model Card {
+  id        String   @id @default(cuid())
+  userId    String
+  brand     String
+  last4     String
+  exp       String
+  name      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("cards")
+}
+
+model BankAccount {
+  id           String   @id @default(cuid())
+  userId       String
+  bankName     String
+  accountLast4 String
+  routing      String
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("bank_accounts")
+}
