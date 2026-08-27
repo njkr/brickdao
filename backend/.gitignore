@@ -1,0 +1,29 @@
+# compiled output
+/dist
+/node_modules
+
+# logs
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# env
+.env
+.env.*.local
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea
+
+# OS
+.DS_Store
+
+# tests
+/coverage
+/.nyc_output
+
+# tmp
+/tmp
