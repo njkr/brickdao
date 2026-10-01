@@ -26,6 +26,30 @@ Local ephemeral network (state is lost when the command exits):
 npx hardhat ignition deploy ignition/modules/AssetFactory.ts --network hardhatMainnet
 ```
 
+Persistent local chain (state survives between commands, which the backend and frontend need):
+
+```bash
+npx hardhat node            # terminal 1: JSON-RPC on http://127.0.0.1:8545, chain id 31337
+npx hardhat ignition deploy ignition/modules/AssetFactory.ts --network localhost   # terminal 2
+```
+
+The deployer (Hardhat account #0) becomes the contract owner and admin. A fresh deployment holds no tokens and no whitelist entries, so before a purchase can succeed an admin has to mint supply and whitelist the buyer. For example, as a one-off script run with `npx hardhat run <file> --network localhost` (use the address printed by the deploy step):
+
+```ts
+import { network } from 'hardhat';
+
+const { viem } = await network.getOrCreate();
+const [admin] = await viem.getWalletClients();
+const factory = await viem.getContractAt('AssetFactory', '<deployed address>');
+
+// 1000 tokens each of token ids 1-6, minted to the owner who sells them
+await factory.write.batchMint([admin.account.address, [1n, 2n, 3n, 4n, 5n, 6n], Array(6).fill(1000n)]);
+// whitelist a buyer for token id 1
+await factory.write.addToWhitelist([1n, '<buyer address>']);
+```
+
+A whitelist entry holds one buyer per token id and expires after `expiry` seconds (default 7 days). The price is the contract-wide `cost` (default 0.001 ETH per token), changeable by an admin with `setCost`.
+
 A real network (e.g. Sepolia) — set `SEPOLIA_RPC_URL` / `SEPOLIA_PRIVATE_KEY` via `npx hardhat keystore set`, then:
 
 ```bash
