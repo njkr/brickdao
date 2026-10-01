@@ -13,7 +13,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 ░░░░░░░            Asset Factory            ░░░░░░░
 ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 
-Ported from BrickFi with three fixes called out in IMPROVEMENTS.md:
+Ported from BrickFi with three fixes:
   1. buy() now charges cost * amount, not a flat `cost` regardless of how
      many tokens were requested.
   2. buy() only allows the admin fee-bypass when the caller IS the admin

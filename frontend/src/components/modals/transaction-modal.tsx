@@ -23,8 +23,8 @@ type Status = 'initial' | 'confirming' | 'mining' | 'success' | 'error';
 /**
  * Places a real on-chain purchase against AssetFactory.buy(). BrickFi's
  * version of this modal was a setTimeout with a Math.random() coin flip —
- * see IMPROVEMENTS.md. If no contract is configured for this property yet,
- * that's shown plainly instead of faking a result.
+ * so it never reflected a real purchase. If no contract is configured for
+ * this property yet, that's shown plainly instead of faking a result.
  */
 export function TransactionModal({ isOpen, onClose, property }: TransactionModalProps) {
   const router = useRouter();

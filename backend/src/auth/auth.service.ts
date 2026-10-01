@@ -19,8 +19,8 @@ type AccessTokenPayload = { sub: string; address: string; role: Role };
  * Wallet-only authentication (sign-in-with-Ethereum style). This is the
  * single identity system for the app — BrickFi shipped a separate
  * email/password JWT system *and* a client-only wallet gate that never
- * talked to each other; that split is exactly what IMPROVEMENTS.md flagged
- * as the top priority to fix in a rewrite.
+ * talked to each other. Here the wallet signature is the only way in, and the
+ * JWTs issued after it are tied to that wallet address.
  */
 @Injectable()
 export class AuthService {

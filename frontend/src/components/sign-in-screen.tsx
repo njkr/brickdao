@@ -9,8 +9,8 @@ import { Logo } from './ui/logo';
 /**
  * Shown once a wallet is connected but hasn't signed the backend's
  * sign-in message yet. Being "connected" and being "authenticated" are
- * different things here on purpose — see IMPROVEMENTS.md on why BrickFi's
- * wallet gate and its backend auth were never actually linked.
+ * different things here on purpose: BrickFi's wallet gate and its backend
+ * auth were never linked, so here the wallet must also sign in to the API.
  */
 export function SignInScreen() {
   const { address, isLoading, signInError, signIn } = useAuth();

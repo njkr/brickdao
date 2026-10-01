@@ -32,8 +32,8 @@ enum TransactionType {
 }
 
 /// A wallet identity. Auth is wallet-only (Sign-In-With-Ethereum style) —
-/// see IMPROVEMENTS.md for why the old email/password JWT system was dropped
-/// instead of ported alongside it.
+/// There is deliberately no separate email/password login: one wallet identity
+/// backs both the app gate and the API session.
 model User {
   id               String   @id @default(cuid())
   address          String   @unique
