@@ -24,6 +24,7 @@ Thumbs.db
 # local tooling / notes
 CLAUDE.md
 .claude/
+AGENTS.md
 
 # contracts (Hardhat / Foundry)
 artifacts/
