@@ -1,98 +1,134 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# BrickDAO Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+REST API for BrickDAO, a tokenized real estate platform. It handles wallet-based sign-in, serves property listings, and stores each investor's transactions and portfolio. The on-chain side (the `AssetFactory` ERC-1155 contract) lives in [`../contracts`](../contracts) and the web app in [`../frontend`](../frontend); see the [root README](../README.md) for the full picture.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+![Swagger UI](../docs/screenshots/03-api-docs.png)
 
-## Description
+## Stack
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+NestJS 11, Prisma 6 with PostgreSQL 16, `viem` for signature verification, `@nestjs/jwt` + Passport, `@nestjs/throttler`, `helmet`, `class-validator` DTOs, `zod` environment validation, Swagger.
 
-## Project setup
+## Modules
+
+| Module | Folder | Responsibility |
+| --- | --- | --- |
+| App | `src/app.*` | `GET /health` |
+| Auth | `src/auth` | Nonce issuing, signature verification, JWT access/refresh tokens, logout |
+| Users | `src/users` | `GET /users/me` for the signed-in wallet |
+| Properties | `src/properties` | Public listing/detail endpoints; admin-only create, update, delete |
+| Finance | `src/finance` | Cards, bank accounts, transactions and the portfolio summary, always scoped to the signed-in user |
+| Common | `src/common` | Zod env validation, Prisma service, JWT and role guards, decorators, HTTP exception filter |
+
+## Wallet sign-in flow
+
+There are no passwords. A wallet proves it controls an address by signing a message that contains a single-use nonce.
+
+1. `POST /auth/nonce` with `{ "address": "0x..." }`. The API creates the user if needed, stores a fresh nonce, and returns the message to sign (modelled on EIP-4361: domain, address, nonce, issued-at).
+2. The wallet signs that message (`personal_sign`). This costs no gas.
+3. `POST /auth/verify` with `{ address, message, signature }`. The API checks that the message contains the stored nonce, verifies the signature with `viem`, rotates the nonce so the same signed message can never be replayed, and returns `{ accessToken, refreshToken, user }`.
+4. Send `Authorization: Bearer <accessToken>` on protected routes. When it expires, `POST /auth/refresh` with the refresh token returns a new pair. Refresh tokens are stored hashed (bcrypt) and `POST /auth/logout` revokes them.
+
+Admin is a server-side role. Addresses listed in `ADMIN_WALLET_ADDRESSES` receive the `ADMIN` role, and `RolesGuard` enforces it on the mutating property endpoints. No endpoint accepts a client-supplied user id; every finance route derives the user from the JWT.
+
+## API endpoints
+
+Interactive documentation is served at `http://localhost:4000/docs`.
+
+| Method | Path | Description | Access |
+| --- | --- | --- | --- |
+| GET | `/health` | Liveness check | Public |
+| POST | `/auth/nonce` | Request a sign-in message for an address | Public (rate limited) |
+| POST | `/auth/verify` | Verify a signature, receive tokens | Public (rate limited) |
+| POST | `/auth/refresh` | Exchange a refresh token for a new pair | Public (rate limited) |
+| POST | `/auth/logout` | Revoke the stored refresh token | JWT |
+| GET | `/users/me` | Current user (`id`, `address`, `role`) | JWT |
+| GET | `/properties` | List properties. Query: `search`, `status`, `minPrice`, `maxPrice`, `location` | Public |
+| GET | `/properties/:id` | Property detail with documents | Public |
+| POST | `/properties` | Create a property | JWT + ADMIN |
+| PATCH | `/properties/:id` | Update a property | JWT + ADMIN |
+| DELETE | `/properties/:id` | Delete a property | JWT + ADMIN |
+| GET | `/finance/cards` | List the user's cards | JWT |
+| POST | `/finance/cards` | Add a card (stores brand, last 4 digits, expiry, name only) | JWT |
+| GET | `/finance/banks` | List the user's bank accounts | JWT |
+| POST | `/finance/banks` | Add a bank account (stores bank name, last 4 digits, routing) | JWT |
+| GET | `/finance/transactions` | List the user's transactions, optionally by type | JWT |
+| POST | `/finance/transactions` | Record a `PURCHASE` or `YIELD` event, optionally with a `txHash` | JWT |
+| GET | `/finance/portfolio` | Holdings and total invested, derived from transactions | JWT |
+
+Rate limits: 100 requests per minute per client globally, and 10 per minute on `/auth/nonce`, `/auth/verify` and `/auth/refresh`. Request bodies are validated with `class-validator`, unknown properties are rejected, and `helmet` plus an explicit CORS allowlist (`CORS_ORIGINS`) are enabled.
+
+## Data model (Prisma)
+
+Defined in `prisma/schema.prisma`; migrations are in `prisma/migrations`.
+
+| Model | Table | Notes |
+| --- | --- | --- |
+| `User` | `users` | `address` (unique wallet), `role` (`USER` / `ADMIN`), current `nonce`, hashed refresh token |
+| `Property` | `properties` | Listing data (title, location, price, `tokenPrice`, `totalTokens`, `tokensSold`, `status`, features, `returnRate`) plus `contractAddress` and `tokenId` linking it to the ERC-1155 token |
+| `PropertyDocument` | `property_documents` | Named document links attached to a property |
+| `Transaction` | `transactions` | `PURCHASE` or `YIELD` for a user and property, with `tokens`, `value` and optional `txHash` |
+| `Card` | `cards` | Brand, last 4 digits, expiry, name; never a full card number |
+| `BankAccount` | `bank_accounts` | Bank name, last 4 digits, routing |
+
+Enums: `Role` (`USER`, `ADMIN`), `PropertyStatus` (`AVAILABLE`, `SOLD_OUT`, `COMING_SOON`), `TransactionType` (`PURCHASE`, `YIELD`).
+
+## Setup
+
+Prerequisites: Node.js 20+, Docker.
 
 ```bash
-$ npm install
+docker compose up -d            # PostgreSQL 16 (user/password/db: postgres/postgres/brickdao) on port 5432
+npm install
+cp .env.example .env            # then edit, see below
+npx prisma migrate deploy       # apply the existing migrations
+npm run db:seed                 # six sample properties and the admin wallet(s)
+npm run start:dev               # http://localhost:4000
 ```
 
-## Compile and run the project
+If `prisma migrate` or the seed complain about missing types after a fresh install, run `npm run prisma:generate` once.
 
-```bash
-# development
-$ npm run start
+To stop the database: `docker compose stop`. `docker compose down -v` also deletes the data volume.
 
-# watch mode
-$ npm run start:dev
+The seed assigns token ids 1 to 6 to the sample properties and sets `contractAddress` from `ASSET_FACTORY_ADDRESS` if it is set. Properties that already exist are skipped, so set the variable before the first seed, or edit `contractAddress` afterwards (admin panel, Prisma Studio or `PATCH /properties/:id`).
 
-# production mode
-$ npm run start:prod
-```
+## Scripts
 
-## Run tests
+| Command | What it does |
+| --- | --- |
+| `npm run start:dev` | Start with file watching |
+| `npm run start` | Start without watching |
+| `npm run build` | Compile to `dist/` |
+| `node dist/src/main` | Run the compiled build (the `npm run start:prod` script points at `dist/main`, which is not where the build writes its output) |
+| `npm run lint` | ESLint (auto-fixes) |
+| `npm run format` | Prettier |
+| `npm test` | Unit tests (Jest) |
+| `npm run test:cov` | Unit tests with coverage |
+| `npm run test:e2e` | End-to-end tests |
+| `npm run prisma:generate` | Generate the Prisma client |
+| `npm run prisma:migrate` | Create/apply migrations in development (`prisma migrate dev`) |
+| `npm run prisma:studio` | Open Prisma Studio |
+| `npm run db:seed` | Seed properties and admin wallets |
 
-```bash
-# unit tests
-$ npm run test
+## Environment variables
 
-# e2e tests
-$ npm run test:e2e
+Validated with zod at boot. The app refuses to start if a required value is missing or malformed. Copy `.env.example` to `.env`.
 
-# test coverage
-$ npm run test:cov
-```
+| Variable | Required | Default | Description |
+| --- | --- | --- | --- |
+| `DATABASE_URL` | yes | | PostgreSQL connection string, e.g. `postgresql://postgres:postgres@localhost:5432/brickdao` |
+| `JWT_ACCESS_SECRET` | yes | | Access-token signing secret, at least 16 characters |
+| `JWT_REFRESH_SECRET` | yes | | Refresh-token signing secret, at least 16 characters |
+| `PORT` | no | `4000` | HTTP port |
+| `CORS_ORIGINS` | no | `http://localhost:3000` | Comma-separated allowed origins |
+| `JWT_ACCESS_TTL_SECONDS` | no | `900` | Access-token lifetime |
+| `JWT_REFRESH_TTL_SECONDS` | no | `604800` | Refresh-token lifetime |
+| `ADMIN_WALLET_ADDRESSES` | no | empty | Comma-separated, lowercase wallet addresses that get the ADMIN role |
+| `ASSET_FACTORY_ADDRESS` | no | | Used only by the seed script to attach seeded properties to a deployed contract |
 
-## Deployment
+Generate the secrets with `openssl rand -hex 32`.
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+## Related
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+- [Root README](../README.md): architecture and the full local setup
+- [Frontend README](../frontend/README.md)
+- [Contracts README](../contracts/README.md)
