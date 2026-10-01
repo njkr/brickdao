@@ -1,0 +1,34 @@
+# dependencies
+node_modules/
+
+# environment files (never commit real values)
+.env
+.env.*
+!.env.example
+
+# build output
+dist/
+build/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+
+# logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# local tooling / notes
+CLAUDE.md
+.claude/
+
+# contracts (Hardhat / Foundry)
+artifacts/
+cache/
+typechain/
+typechain-types/
+broadcast/
+ignition/deployments/
